@@ -5,6 +5,13 @@
 (var completions @[])
 (var completion-index nil)
 
+(def NEWLINE 10)
+
+(defn for-any?
+    "returns true if predicate `pred` is true for any element in `collection`"
+    [collection pred]
+    (reduce (fn [a b] (or a (pred b))) false collection))
+
 (defn rgb [r g b]
     @{ :red r :green g :blue b
        :enable (fn [self] (file/write stdout (string "\x1b[38;2;" r ";" g ";" b "m")))
@@ -15,21 +22,18 @@
         (string "\x1b7\x1b[" row ";" col "f" text "\x1b8")))
 
 (defn write-history [new-entry]
-    (if (and (not (empty? new-entry)) (not= new-entry (last repl-history)))
+    (if-not (or (empty? new-entry) (= new-entry (last repl-history)))
         (do
             (array/push repl-history new-entry)
             (set history-index (length repl-history)))))
 
 (defn prev-history []
-    (if (< 0 history-index)
-        (do
-            (-- history-index)
-            (get repl-history history-index ""))))
+    (if (pos? history-index)
+        (get repl-history (-- history-index) "")))
 
 (defn next-history []
-    (if (< history-index (length repl-history)) (do
-        (++ history-index)
-        (get repl-history history-index ""))))
+    (if (< history-index (length repl-history))
+        (get repl-history (++ history-index) "")))
 
 (defn initialize-repl []
     (print "Welcome to JEPL, an alternative Janet REPL!")
@@ -40,16 +44,9 @@
         (:enable output-color)
         (doc* (symbol query))))
 
-(defn colored [text r g b]
-    (string "\x1b[38;2;" r ";" g ";" b "m" text "\x1b[0m"))
-
 (defn needs-parens? [expr]
     (and
-        (not (string/has-prefix? ":" expr))
-        (not (string/has-prefix? "@" expr))
-        (not (string/has-prefix? "\"" expr))
-        (not (string/has-prefix? "'" expr))
-        (not (string/has-prefix? "(" expr)) #)
+        (not (for-any? [":" "@" "\"" "'" "(" ")"] |(string/has-prefix? $ expr)))
         (string/find " " expr)))
 
 (defn my-eval [input]
@@ -67,8 +64,7 @@
                 (print err))
             (eval '(var ans nil)))))
 
-(defn is-line? [buf]
-    (= 10 (last buf)))
+(defn is-line? [buf] (= NEWLINE (last buf)))
 
 (defn is-space? [ascii-code] (= 32 ascii-code))
 
@@ -130,12 +126,14 @@
         (erase-char)))
 
 (defn move-cursor-right []
+    (set completion-index nil)
     (if-not (at-last-element? cursor)
         (do
             (file/write stdout "\e[C")
             (++ cursor))))
 
 (defn move-cursor-left []
+    (set completion-index nil)
     (if (pos? cursor)
         (do
             (file/write stdout "\x08")
@@ -165,7 +163,7 @@
     (set completion-index nil)
     (file/write stdout ch)
     (if-not (at-last-element? cursor)
-        (buffer/blit buf buf (+ 1 cursor) cursor))
+        (buffer/blit buf buf (inc cursor) cursor))
     (buffer/blit buf ch cursor)
     (++ cursor)
     (def chars-after (buffer/slice buf cursor))
@@ -176,30 +174,41 @@
 (defn find-completions [query]
     (filter |(string/has-prefix? query $) (map string (all-bindings))))
 
+(defn can-be-identifier? [ch]
+    (not (string/check-set " ()\"'#" ch)))
+
+(defn current-word []
+    (def buf (dyn :buf))
+    (var left cursor)
+    (while (and (pos? left) (can-be-identifier? (string/format "%c" (get buf (dec left)))))
+        (-- left))
+    (string (buffer/slice buf left cursor)))
+
 (defn update-completions []
-    (set completions (find-completions (dyn :buf)))
+    (addstr 10 10 (string "    " (current-word) "     "))
+    (set completions (find-completions (current-word)))
     (set completion-index -1))
 
 (defn prev-completion []
-    (-- completion-index)
-    (if (neg? completion-index)
+    (if (neg? (-- completion-index))
         (set completion-index (dec (length completions))))
     (get completions completion-index))
 
 (defn next-completion []
-    (++ completion-index)
-    (if (= completion-index (length completions)) (set completion-index 0))
+    (if (= (++ completion-index) (length completions)) (set completion-index 0))
     (get completions completion-index))
 
+(defn apply-completion [compl]
+    # FIXME: this shouldn't replace entire buffer
+    (replace-buffer compl))
+
 (defn handle-unknown-escape-seq [tmp-buf]
-    (def text
-        (string
-            ">  Received unknown escape sequence: "
-            (to-byte-string tmp-buf)
-            "                      "))
     (with [output-color (rgb 240 0 0)]
         (:enable output-color)
-        (addstr 1 1 text)))
+        (addstr 1 1 "╭───────────────────────────────────╮")
+        (addstr 2 1 "│ Received unknown escape sequence: │")
+        (addstr 3 1 (string/format "│ %32s  │" (to-byte-string tmp-buf)))
+        (addstr 4 1 "╰───────────────────────────────────╯")))
 
 (defn handle-escape-seq [tmp-buf]
     (match (string tmp-buf)
@@ -213,11 +222,11 @@
         "\x09" # tab
             (do
                 (if (nil? completion-index) (update-completions))
-                (if-not (empty? completions) (replace-buffer (next-completion))))
+                (if-not (empty? completions) (apply-completion (next-completion))))
         "\x1b\x5b\x5a" # shift-tab
             (do
                 (if (nil? completion-index) (update-completions))
-                (if-not (empty? completions) (replace-buffer (prev-completion))))
+                (if-not (empty? completions) (apply-completion (prev-completion))))
         "\e\x5b\x33\x7e" # delete key
             (if (not (at-last-element? cursor))
                 (do (move-cursor-right) (erase-char)))
@@ -249,7 +258,6 @@
 
 (defn get-input []
     (file/write stdout prompt)
-    (def NEWLINE 10)
     (with-dyns [:buf @""]
         (forever
             (def tmp-buf @"")
@@ -267,12 +275,6 @@
         (set cursor 0)
         input))
 
-
-(defn for-any?
-    "returns true if predicate `pred` is true for any element in `collection`"
-    [collection pred]
-    (reduce (fn [a b] (or a (pred b))) false collection))
-
 (defn main [args]
     (initialize-repl)
     (try
@@ -280,13 +282,13 @@
             (def input (get-input))
             (cond
                 (empty? input) ()
+                (= input "exit") (quit-repl)
                 (string/has-prefix? "#" input) ()
                 (for-any? ["(??" ")??" " ??"] |(string/has-suffix? $ input))
                     (?docs (first (string/split " " (->
                         input
                         (string/slice 0 -4)
                         (string/triml " ()'")))))
-                (= input "exit") (quit-repl)
 
                 # default:
                 (print (string/format "%M" (my-eval input)))))
