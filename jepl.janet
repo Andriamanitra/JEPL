@@ -182,10 +182,10 @@
     (var left cursor)
     (while (and (pos? left) (can-be-identifier? (string/format "%c" (get buf (dec left)))))
         (-- left))
-    (string (buffer/slice buf left cursor)))
+    (string/slice buf left cursor))
 
 (defn update-completions []
-    (addstr 10 10 (string "    " (current-word) "     "))
+    # (addstr 5 1 (string "    " (current-word) "     "))
     (set completions (find-completions (current-word)))
     (set completion-index -1))
 
@@ -269,7 +269,7 @@
             (if (is-printable? (first tmp-buf))
                 (write-char tmp-buf)
                 (handle-escape-seq tmp-buf)))
-        (def input (string/trim (string (dyn :buf))))
+        (def input (string/trim (dyn :buf)))
         (write-history input)
         (print)
         (set cursor 0)
