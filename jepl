@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+JEPL_PATH=$(dirname $(realpath $0))/jepl2.janet
+COMPLETIONS_PATH=$(dirname $(realpath $0))/completions
+
+if ! command -v rlwrap &> /dev/null
+then
+    janet $JEPL_PATH
+    exit
+fi
+
+if [ -e $COMPLETIONS_PATH ]
+then
+    rlwrap -f $COMPLETIONS_PATH --always-readline janet $JEPL_PATH
+else
+    rlwrap --always-readline janet $JEPL_PATH
+fi
