@@ -38,7 +38,7 @@ jepl>
 I've wanted to do something with a lispy language for a while. I recently learned about Janet and this seemed like a fun little project for trying it out.
 Turns out it's a fun little language!
 
-## Demo
+## Demo (old version with buggy DIY readline-like functionality)
 
 [![asciicast](https://asciinema.org/a/LaMwDMvPTOgm35Nebs3drRwgC.svg)](https://asciinema.org/a/LaMwDMvPTOgm35Nebs3drRwgC)
 
