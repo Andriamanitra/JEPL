@@ -7,15 +7,6 @@ A more ergonomic REPL for [Janet](https://janet-lang.org/index.html)
 * Parens are automatically inserted for expressions that consist of multiple words
 * Type " ??" after a symbol or a function call to view the docs for it
 * Result of the previous expression is always available in a variable called `ans`
-* Tab completion
-* REPL history (remembers inputs for current session)
-* Various keyboard shortcuts:
-  * Close the terminal with `ctrl-q` or `ctrl-d`
-  * Erase full word with `ctrl-w` or `ctrl-backspace`
-  * Browse history with `up` and `down` arrows
-  * Jump to prev/next word with `ctrl-left` and `ctrl-right`
-  * Jump to beginning/end of the line with `ctrl-a`, `ctrl-e`, `home`, `end`
-  * (hopefully more soon)
 
 
 ## How?
