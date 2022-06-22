@@ -23,16 +23,17 @@ A more ergonomic REPL for [Janet](https://janet-lang.org/index.html)
 To run JEPL you need to have [Janet](https://github.com/janet-lang/janet#installation) and Python3 installed.
 Only Linux is supported, I would be *very* surprised if it works at all on Windows since it relies heavily on
 terminal escape codes.
-JEPL must be started by running the `run.py` Python3 script (its only job is to disable line buffering - apparently
-you can't do that in Janet without using C which I didn't want to do). This script must be located in the same
-directory as `jepl.janet`. For a nicer setup I recommend creating a symlink to `run.py` somewhere in your `$PATH`.
+JEPL must be started by running the `jepl` bash script which calls `jepl2.janet`. If you have `rlwrap` installed
+the script uses it to provide readline features like history and completions. Completions should be
+placed in a file called completions (you can generate completions by running `make completions`).
+For a nicer setup I recommend creating a symlink to `jepl` somewhere in your `$PATH`.
 
 For example:
 
 ```console
 $ git clone https://github.com/Andriamanitra/JEPL
 $ cd JEPL
-$ ln -s "$PWD/run.py" "$HOME/.local/bin/jepl"
+$ ln -s "$PWD/jepl" "$HOME/.local/bin/jepl"
 $ jepl
 Welcome to JEPL, an alternative Janet REPL!
 jepl> string "hello" "world"
